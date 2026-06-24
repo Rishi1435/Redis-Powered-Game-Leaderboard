@@ -1,0 +1,21 @@
+{
+  "name": "redis-game-leaderboard",
+  "version": "1.0.0",
+  "description": "High-performance, production-ready backend for a real-time quiz game with Redis and SSE.",
+  "main": "src/server.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed-bench": "node src/bench.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
