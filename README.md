@@ -1,5 +1,7 @@
 # TriviaBlast Live - Real-Time Redis Quiz Game Backend
 
+🎬 Demo Video: [Watch the project walkthrough](https://youtu.be/hkeTjVRI1jU)
+
 A high-performance, production-ready real-time quiz game backend built with Node.js, Express, and Redis. This project showcases advanced Redis data structures (Hashes, Sets, Sorted Sets), atomic database transactions using Lua scripting, and a real-time event pipeline via Redis Pub/Sub and Server-Sent Events (SSE), complete with an interactive dashboard.
 
 ---
