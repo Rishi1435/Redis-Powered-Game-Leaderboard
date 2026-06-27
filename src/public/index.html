@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TriviaBlast Live - Real-Time Redis Quiz Dashboard</title>
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Space Background Glows -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <div class="app-container">
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon"></div>
+        <h1>Trivia<span>Blast</span> Live</h1>
+      </div>
+      <div class="system-status">
+        <span class="status-indicator running"></span>
+        <span class="status-text">Server Online</span>
+      </div>
+    </header>
+
+    <div class="dashboard-grid">
+      <!-- Main Left: Leaderboard -->
+      <section class="card leaderboard-card">
+        <div class="card-header">
+          <div class="title-with-desc">
+            <h2>Global Leaderboard</h2>
+            <p>Real-time rank updates via Redis Sorted Sets</p>
+          </div>
+          <div class="leaderboard-actions">
+            <button id="refresh-leaderboard-btn" class="btn btn-secondary btn-icon-only" title="Refresh Leaderboard">
+              <svg viewBox="0 0 24 24" class="icon"><path d="M19 12a7 7 0 0 1-7 7c-3.86 0-7-3.14-7-7s3.14-7 7-7c1.93 0 3.68.78 4.95 2.05L14 10h7V3l-2.64 2.64C16.89 4.15 14.56 3 12 3a9 9 0 0 0-9 9 9 9 0 0 0 9 9 9 9 0 0 0 9-9h-2z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="leaderboard-wrapper">
+          <table class="leaderboard-table">
+            <thead>
+              <tr>
+                <th class="col-rank">Rank</th>
+                <th class="col-player">Player</th>
+                <th class="col-score">Score</th>
+              </tr>
+            </thead>
+            <tbody id="leaderboard-body">
+              <tr>
+                <td colspan="3" class="text-center loading-text">Loading leaderboard...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Main Right: Simulator & Controls -->
+      <div class="controls-wrapper">
+        <!-- Live Ticker -->
+        <section class="card ticker-card">
+          <div class="card-header">
+            <div class="title-with-desc">
+              <h2>Real-Time Event Feed</h2>
+              <p>Live stream powered by Redis Pub/Sub & SSE</p>
+            </div>
+            <div class="ticker-badge" id="sse-connection-badge">Connecting...</div>
+          </div>
+          <div class="ticker-content" id="event-feed">
+            <div class="ticker-placeholder">Waiting for events to happen...</div>
+          </div>
+        </section>
+
+        <!-- Navigation Tabs -->
+        <div class="tabs-container">
+          <button class="tab-btn active" data-tab="tab-sessions">Sessions</button>
+          <button class="tab-btn" data-tab="tab-scores">Leaderboard Direct</button>
+          <button class="tab-btn" data-tab="tab-game">Quiz Arena</button>
+          <button class="tab-btn" data-tab="tab-admin">Admin Manager</button>
+        </div>
+
+        <!-- Tab 1: Session Management -->
+        <section class="card tab-pane active" id="tab-sessions">
+          <div class="card-header">
+            <h2>Session Management</h2>
+          </div>
+          <div class="card-content">
+            <p class="description">Create and manage your active gaming session. Creating a session automatically invalidates any existing sessions for that user ID.</p>
+            
+            <form id="session-form" class="sim-form">
+              <div class="form-group">
+                <label for="sess-user-id">User ID</label>
+                <input type="text" id="sess-user-id" placeholder="e.g. player-100" required>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="sess-device">Device Type</label>
+                  <select id="sess-device">
+                    <option value="desktop">Desktop</option>
+                    <option value="mobile">Mobile</option>
+                    <option value="tablet">Tablet</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="sess-ip">IP Address</label>
+                  <input type="text" id="sess-ip" value="192.168.1.42">
+                </div>
+              </div>
+              <button type="submit" class="btn btn-primary">Start New Session</button>
+            </form>
+
+            <div class="current-session-box" id="active-session-display" style="display: none;">
+              <h3>Active Session Details</h3>
+              <div class="info-grid">
+                <div class="info-item"><span class="label">Session ID:</span><span class="value code" id="display-session-id">-</span></div>
+                <div class="info-item"><span class="label">User ID:</span><span class="value" id="display-user-id">-</span></div>
+                <div class="info-item"><span class="label">Device:</span><span class="value" id="display-device">-</span></div>
+                <div class="info-item"><span class="label">IP Address:</span><span class="value" id="display-ip">-</span></div>
+                <div class="info-item"><span class="label">TTL (Expires In):</span><span class="value text-warning" id="display-ttl">-</span></div>
+              </div>
+              <button class="btn btn-danger btn-sm" id="btn-logout-session">Invalidate Session</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Tab 2: Leaderboard Direct Points -->
+        <section class="card tab-pane" id="tab-scores">
+          <div class="card-header">
+            <h2>Submit Points Direct</h2>
+          </div>
+          <div class="card-content">
+            <p class="description">Directly submit a score change to the global leaderboard. This utilizes the <code>ZINCRBY</code> operation inside Redis.</p>
+            
+            <form id="score-form" class="sim-form">
+              <div class="form-group">
+                <label for="score-player-id">Player ID</label>
+                <input type="text" id="score-player-id" placeholder="e.g. player-100" required>
+              </div>
+              <div class="form-group">
+                <label for="score-points">Points to Add / Subtract</label>
+                <input type="number" id="score-points" placeholder="e.g. 50" required>
+              </div>
+              <button type="submit" class="btn btn-accent">Atomically Adjust Score</button>
+            </form>
+          </div>
+        </section>
+
+        <!-- Tab 3: Game Rounds Arena -->
+        <section class="card tab-pane" id="tab-game">
+          <div class="card-header">
+            <h2>Quiz Submission Arena</h2>
+          </div>
+          <div class="card-content">
+            <!-- Part A: Seed a Round -->
+            <div class="section-divider">
+              <span>Step 1: Setup Game Round State (Admin)</span>
+            </div>
+            <form id="seed-round-form" class="sim-form">
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="game-id">Game ID</label>
+                  <input type="text" id="game-id" value="game-501" required>
+                </div>
+                <div class="form-group">
+                  <label for="round-id">Round ID</label>
+                  <input type="text" id="round-id" value="round-1" required>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="correct-answer">Correct Answer</label>
+                  <input type="text" id="correct-answer" value="Redis" required>
+                </div>
+                <div class="form-group">
+                  <label for="round-points">Points</label>
+                  <input type="number" id="round-points" value="100" required>
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="duration">Duration (seconds)</label>
+                <input type="number" id="duration" value="60" required>
+              </div>
+              <button type="submit" class="btn btn-secondary">Seed Round in Redis</button>
+            </form>
+
+            <div class="active-round-banner" id="active-round-banner" style="display: none;">
+              <div>Active Round: <strong id="banner-round-title">-</strong></div>
+              <div>Correct Answer: <strong id="banner-correct-answer">-</strong></div>
+              <div>Timer: <span class="time-countdown" id="banner-timer">-</span></div>
+            </div>
+
+            <!-- Part B: Submit Answer -->
+            <div class="section-divider">
+              <span>Step 2: Submit Answer (Player)</span>
+            </div>
+            <form id="submit-answer-form" class="sim-form">
+              <div class="form-group">
+                <label for="submit-player-id">Player ID</label>
+                <input type="text" id="submit-player-id" placeholder="Use active session or enter custom ID" required>
+              </div>
+              <div class="form-group">
+                <label for="submit-answer">Your Answer</label>
+                <input type="text" id="submit-answer" placeholder="Type answer here..." required>
+              </div>
+              <button type="submit" class="btn btn-primary" id="btn-submit-answer">Submit Answer (Lua Atomic Eval)</button>
+            </form>
+
+            <div class="alert-box" id="game-feedback" style="display: none;"></div>
+          </div>
+        </section>
+
+        <!-- Tab 4: Admin Manager -->
+        <section class="card tab-pane" id="tab-admin">
+          <div class="card-header">
+            <h2>Admin Session Manager</h2>
+          </div>
+          <div class="card-content">
+            <p class="description">Perform administrative tasks. Look up active sessions for any User ID, view details, and invalidate sessions manually.</p>
+            
+            <form id="lookup-sessions-form" class="sim-form form-row-inline">
+              <div class="form-group flex-grow">
+                <input type="text" id="lookup-user-id" placeholder="Enter User ID to lookup sessions..." required>
+              </div>
+              <button type="submit" class="btn btn-secondary">Query Sessions</button>
+            </form>
+
+            <div class="lookup-results" id="lookup-results-container" style="display: none;">
+              <h3>Active Sessions for User</h3>
+              <div class="table-scroll">
+                <table class="session-table">
+                  <thead>
+                    <tr>
+                      <th>Session ID</th>
+                      <th>Device</th>
+                      <th>IP Address</th>
+                      <th>TTL</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody id="lookup-sessions-body">
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
